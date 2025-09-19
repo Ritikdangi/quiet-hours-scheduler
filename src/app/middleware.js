@@ -16,3 +16,6 @@ export async function middleware(req) {
   return res;
 }
 
+export const config = {
+  matcher: ["/dashboard/:path*", "/api/:path*"],
+};

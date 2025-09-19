@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import StudyBlock from "@/app/models/StudyBlock";
 import { createClient } from "@supabase/supabase-js";
-import mongoose from "mongoose";
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -20,7 +20,7 @@ export async function DELETE(req, { params }) {
 
     const deleted = await StudyBlock.findOneAndDelete({
       _id: params.id,
-      userId: user.id, // only allow owner to delete
+      userId: user.id,
     });
 
     if (!deleted) {
