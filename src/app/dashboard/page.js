@@ -9,36 +9,41 @@ export default function Dashboard() {
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [msg, setMsg] = useState("");
+  const [loading, setLoading] = useState(true); // new loading state
   const router = useRouter();
 
-  // Load user and blocks
-  useEffect(() => {
-    async function loadUserAndBlocks() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        router.push("/auth");
-        return;
-      }
-      setUser(user);
-
-      const res = await fetch("/api/blocks");
-      const data = await res.json();
-      setBlocks(Array.isArray(data) ? data : []); // ensure array
+  // Get session and user, then fetch blocks
+  const fetchBlocks = async () => {
+    setLoading(true); // start loading
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      router.push("/auth");
+      return;
     }
 
-    loadUserAndBlocks();
-  }, [router]);
-
-  const fetchBlocks = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
     const res = await fetch("/api/blocks", {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
     const data = await res.json();
     setBlocks(Array.isArray(data) ? data : []);
+    setLoading(false); // finished loading
   };
 
+  // Load user and blocks on component mount
+  useEffect(() => {
+    const loadUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push("/auth");
+        return;
+      }
+      setUser(session.user);
+      await fetchBlocks();
+    };
+    loadUser();
+  }, [router]);
+
+  // Add new block
   const handleAdd = async (e) => {
     e.preventDefault();
     const { data: { session } } = await supabase.auth.getSession();
@@ -58,12 +63,13 @@ export default function Dashboard() {
       setMsg("✅ Block added");
       setStartTime("");
       setEndTime("");
-      fetchBlocks();
+      await fetchBlocks(); // reload all blocks
     } else {
       setMsg("❌ " + data.error);
     }
   };
 
+  // Delete block
   const handleDelete = async (id) => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
@@ -74,10 +80,14 @@ export default function Dashboard() {
     });
 
     if (res.ok) {
-      setBlocks(blocks.filter((b) => b._id !== id));
+      setBlocks((prev) => prev.filter((b) => b._id !== id));
+    } else {
+      const data = await res.json();
+      setMsg("❌ " + data.error);
     }
   };
 
+  // Logout
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push("/auth");
@@ -113,10 +123,13 @@ export default function Dashboard() {
           ➕ Add Block
         </button>
       </form>
+
       {msg && <p className="mb-4">{msg}</p>}
 
       <div className="space-y-4">
-        {blocks.length === 0 ? (
+        {loading ? (
+          <p>⏳ Loading your study blocks...</p>
+        ) : blocks.length === 0 ? (
           <p>No study blocks yet.</p>
         ) : (
           blocks.map((block) => (

@@ -10,31 +10,35 @@ export default function AuthPage() {
   const [msg, setMsg] = useState("");
   const router = useRouter();
 
+  // Redirect if user is already logged in
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) router.push("/dashboard");
+    });
+  }, [router]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    let result;
 
     if (mode === "login") {
-      result = await supabase.auth.signInWithPassword({ email, password });
-      if (result.error) {
-        setMsg(result.error.message);
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        setMsg(error.message);
       } else {
-        router.push("/dashboard"); // Redirect after successful login
+        router.push("/dashboard");
       }
     } else {
-      result = await supabase.auth.signUp(
+      const { data, error } = await supabase.auth.signUp(
         { email, password },
         {
-          emailRedirectTo: process.env.NEXT_PUBLIC_EMAIL_REDIRECT || "http://localhost:3000/auth"
+          emailRedirectTo: process.env.NEXT_PUBLIC_EMAIL_REDIRECT || `${window.location.origin}/auth`,
         }
       );
-      if (result.error) {
-        setMsg(result.error.message);
+      if (error) {
+        setMsg(error.message);
       } else {
-        // Redirect to login page with check-email message
-        setMsg(" Please check your email to confirm your account then login.");
-        router.push("/auth");
+        setMsg("✅ Please check your email to confirm, then login.");
+        setMode("login");
       }
     }
   };
@@ -60,10 +64,7 @@ export default function AuthPage() {
         <button type="submit" className="w-full p-2 bg-blue-600 rounded">
           {mode === "login" ? "Login" : "Signup"}
         </button>
-        <p
-          className="text-sm cursor-pointer"
-          onClick={() => setMode(mode === "login" ? "signup" : "login")}
-        >
+        <p className="text-sm cursor-pointer" onClick={() => setMode(mode === "login" ? "signup" : "login")}>
           {mode === "login" ? "No account? Signup" : "Have an account? Login"}
         </p>
         {msg && <p className="text-sm">{msg}</p>}
